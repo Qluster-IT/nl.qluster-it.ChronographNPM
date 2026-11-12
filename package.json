@@ -1,6 +1,6 @@
 {
   "name": "chronograph-npm",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "The Chronograph App for Athom's Homey",
   "main": "src/cg.js",
   "types": "./dist/cg.d.ts",
