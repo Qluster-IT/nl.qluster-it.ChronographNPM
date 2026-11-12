@@ -2,24 +2,10 @@ class CG {
 
 
     static async init({ homey } = {}) {
+        if (CG.Current) CG.destroy();
         let cg = new CG({ homey });
 
-        if (!homey.app.__CG_OnUninit) {
-            homey.app.__CG_OnUninit = homey.app.onUninit;
-            homey.app.onUninit = async function (args) {
-
-                try {
-                    if (CG) await CG.destroy();
-                } catch (error) {
-                    console.log(error);
-                }
-                try {
-                    if (args) await CG.homey.__CG_OnUninit(...args); else await CG.homey.__CG_OnUninit();
-                } catch (error) {
-                    let a = error;
-                }
-            };
-        }
+        homey.once('unload', CG.destroy);
         try {
             await cg.init();
         } catch (error) {
@@ -45,7 +31,7 @@ class CG {
             try {
                 this.api = await this.getAppApi(true);
                 this.api.on('realtime', this.realtimeFunction);
-                await this.api.get('/chronographs')
+                //await this.api.get('/chronographs')
                 if (!CG.isReady && CG._defer) CG._defer.resolve();
             } catch (error) {
                 this.homey.error('CG.init', error);
@@ -57,9 +43,13 @@ class CG {
 
 
 
+    /**
+     * Removes the realtime and unload listeners. Called automatically when Homey emits unload.
+     */
     static destroy() {
         try {
             if (!CG.Current) return;
+            CG.Current.homey.removeListener('unload', CG.destroy);
             if (CG.Current.api) {
                 CG.Current.api.off('realtime', CG.Current.realtimeFunction);
             }
@@ -116,8 +106,32 @@ class CG {
 
 
     /**
-     * @description Setable member, when set, will be activated on any variable update.
-     * @param {Object} param0.variable 
+     * Handles a realtime update from the Chronograph app. Override this method
+     * to receive updated chronograph data.
+     * @param {Object} param0 Update payload.
+     * @param {Object} param0.chronograph Realtime state snapshot, not a Chronograph class instance.
+     * @param {string} [param0.chronograph.id] Generated identifier; omitted from single-event updates.
+     * @param {string} param0.chronograph.name Configured chronograph name.
+     * @param {number} param0.chronograph.duration Elapsed duration in milliseconds, also exposed as elapsed.
+     * @param {number} param0.chronograph.elapsed Elapsed duration in milliseconds.
+     * @param {number|null} param0.chronograph.targetDuration Target duration in milliseconds.
+     * Stopwatches have no target (NaN before serialization, normally null over the API).
+     * @param {number|null} param0.chronograph.remaining Target duration minus elapsed duration, in milliseconds.
+     * Not meaningful for stopwatches; may be NaN or null after serialization.
+     * @param {boolean} param0.chronograph.running Whether the chronograph is running.
+     * @param {boolean} param0.chronograph.removed Whether this update reports removal of the chronograph.
+     * @param {Date} param0.chronograph.now Snapshot timestamp, converted to a Date by this package.
+     * @param {Object} param0.chronograph.data Chronograph metadata; may be incomplete during creation.
+     * @param {'Timer'|'Stopwatch'|'Transition'} [param0.chronograph.data.type] Chronograph kind.
+     * @param {number} [param0.chronograph.data.from] Transition starting value.
+     * @param {number} [param0.chronograph.data.to] Transition ending value.
+     * @param {number} [param0.chronograph.data.steps] Transition step count, limited by its duration.
+     * @param {Object} [param0.chronograph.data.flowValues] Most recent start values, when retained by the app.
+     * @param {number} [param0.chronograph.data.flowValues.time] Resolved start duration in the specified unit.
+     * @param {string} [param0.chronograph.data.flowValues.unit] Duration unit: milliseconds, seconds, minutes, hours, or days.
+     * @param {number} [param0.chronograph.data.flowValues.from] Requested transition starting value.
+     * @param {number} [param0.chronograph.data.flowValues.to] Requested transition ending value.
+     * @param {number} [param0.chronograph.data.flowValues.steps] Requested transition step count.
      */
     static async onChronographUpdate({ chronograph }) {
         //BL.homey.log('onChronographUpdate: ', chronograph);
