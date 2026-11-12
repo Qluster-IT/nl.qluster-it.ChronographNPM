@@ -24,17 +24,11 @@ export class CG {
      * @param {boolean} param0.chronograph.running Whether the chronograph is running.
      * @param {boolean} param0.chronograph.removed Whether this update reports removal of the chronograph.
      * @param {Date} param0.chronograph.now Snapshot timestamp, converted to a Date by this package.
-     * @param {Object} param0.chronograph.data Chronograph metadata; may be incomplete during creation.
+     * @param {Object} param0.chronograph.data Chronograph metadata, excluding flowValues; may be incomplete during creation.
      * @param {'Timer'|'Stopwatch'|'Transition'} [param0.chronograph.data.type] Chronograph kind.
      * @param {number} [param0.chronograph.data.from] Transition starting value.
      * @param {number} [param0.chronograph.data.to] Transition ending value.
      * @param {number} [param0.chronograph.data.steps] Transition step count, limited by its duration.
-     * @param {Object} [param0.chronograph.data.flowValues] Most recent start values, when retained by the app.
-     * @param {number} [param0.chronograph.data.flowValues.time] Resolved start duration in the specified unit.
-     * @param {string} [param0.chronograph.data.flowValues.unit] Duration unit: milliseconds, seconds, minutes, hours, or days.
-     * @param {number} [param0.chronograph.data.flowValues.from] Requested transition starting value.
-     * @param {number} [param0.chronograph.data.flowValues.to] Requested transition ending value.
-     * @param {number} [param0.chronograph.data.flowValues.steps] Requested transition step count.
      */
     static onChronographUpdate({ chronograph }: {
         chronograph: {
@@ -52,13 +46,6 @@ export class CG {
                 from?: number;
                 to?: number;
                 steps?: number;
-                flowValues?: {
-                    time?: number;
-                    unit?: string;
-                    from?: number;
-                    to?: number;
-                    steps?: number;
-                };
             };
         };
     }): Promise<void>;
