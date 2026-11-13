@@ -36,7 +36,7 @@ class MyApp extends Homey.App {
 module.exports = MyApp;
 ```
 
-`CG.init` accepts one option, `homey`, which must be the Homey instance. It returns a `CG` instance and registers a realtime listener. It does not fetch chronographs during initialization; call `CG.getChronographs()` or `CG.getAllChronographs()` when you need that data. When Homey emits `unload` as the consuming app stops, `CG.destroy()` is called automatically to remove the listeners, without replacing your app's lifecycle methods. Cleanup cannot be guaranteed if the process is forcibly terminated.
+`CG.init` accepts one option, `homey`, which must be the Homey instance. It checks that Chronograph is installed and responding to its `/chronographs` API before registering a realtime listener. This checks availability during initialization, not continuously afterward. The response is discarded; call `CG.getChronographs()` or `CG.getAllChronographs()` when you need that data. If a check fails, the error is logged, `isReady` remains false, and `ready` remains pending; call `instance.init()` to retry. When Homey emits `unload` as the consuming app stops, `CG.destroy()` is called automatically to remove the listeners, without replacing your app's lifecycle methods. Cleanup cannot be guaranteed if the process is forcibly terminated.
 
 ## Available API
 
@@ -49,7 +49,7 @@ The package exports the `CG` class:
 | `CG.getAllChronographs()` | Returns configured chronograph names grouped by type, such as `timer`, `stopwatch`, and `transition`. |
 | `CG.onChronographUpdate({ chronograph })` | Update hook. Override it to handle realtime updates; the default implementation does nothing. |
 | `CG.destroy()` | Removes the realtime and unload listeners. Called automatically on Homey's `unload` event; can also be called manually. |
-| `instance.ready` / `CG.ready` | Promise that resolves after successful initialization and realtime-listener registration. |
+| `instance.ready` / `CG.ready` | Promise that resolves after the installation and API checks and realtime-listener registration succeed. |
 | `instance.isReady` / `CG.isReady` | Indicates whether the integration has become ready. |
 
 For example, retrieve active chronographs after initialization:
@@ -93,4 +93,4 @@ module.exports = MyApp;
 - The Chronograph app must be installed on the same Homey.
 - Your app must declare the Chronograph permission in `app.json`.
 - Initialize the package with your app's Homey instance before calling the retrieval methods.
-- Initialization only registers for realtime updates; fetch chronograph data explicitly using the retrieval methods.
+- Initialization checks the Chronograph API and registers for realtime updates; fetch chronograph data explicitly using the retrieval methods.

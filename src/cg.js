@@ -6,33 +6,32 @@ class CG {
         let cg = new CG({ homey });
 
         homey.once('unload', CG.destroy);
-        try {
-            await cg.init();
-        } catch (error) {
-
-        }
+        await cg.init();
         return cg;
     }
     constructor({ homey }) {
         CG.Current = this;
         this.homey = CG.homey = homey;
-        this.isReady = false;
+        CG.isReady = this.isReady = false;
+        this._destroyed = false;
 
-        CG._defer = new Defer();
+        this._defer = CG._defer = new Defer();
 
-        this.ready = CG.ready = CG._defer.promise;
-        CG.ready.then(() => {
-            CG.isReady = this.isReady = true;
+        this.ready = CG.ready = this._defer.promise;
+        this.ready.then(() => {
+            this.isReady = true;
+            if (CG.Current === this) CG.isReady = true;
         });
     }
 
     async init({ } = {}) {
         if (!this.api) {
             try {
-                this.api = await this.getAppApi(true);
-                this.api.on('realtime', this.realtimeFunction);
-                //await this.api.get('/chronographs')
-                if (!CG.isReady && CG._defer) CG._defer.resolve();
+                const api = await this.getAppApi();
+                if (this._destroyed) return this;
+                api.on('realtime', this.realtimeFunction);
+                this.api = api;
+                this._defer.resolve();
             } catch (error) {
                 this.homey.error('CG.init', error);
                 return this;
@@ -49,6 +48,7 @@ class CG {
     static destroy() {
         try {
             if (!CG.Current) return;
+            CG.Current._destroyed = true;
             CG.Current.homey.removeListener('unload', CG.destroy);
             if (CG.Current.api) {
                 CG.Current.api.off('realtime', CG.Current.realtimeFunction);
@@ -59,8 +59,6 @@ class CG {
 
 
     async realtimeFunction(event, data) {
-        if (!CG.isReady && CG._defer) CG._defer.resolve();
-
         if (event === 'chronograph_event') {
             if (data && data.now) data.now = new Date(data.now);
             CG.onChronographUpdate({ chronograph: data });
@@ -76,21 +74,11 @@ class CG {
 
 
     /** @private */
-    async getAppApi(onlyApi) {
-        try {
-            if (!this.api) this.api = this.homey.api.getApiApp('nl.fellownet.chronograph');
-        } catch (error) {
-            throw new Error(error);
-        }
-        if (onlyApi === true) return this.api;
-        if (!this.api) throw new Error('Chronograph is not installed.');
-        else {
-            try {
-                BL._isLoaded = await this.api.getInstalled();
-            } catch (error) { }
-            if (!BL._isLoaded) throw new Error('Chronograph is not installed.');
-        }
-        return this.api;
+    async getAppApi() {
+        const api = this.homey.api.getApiApp('nl.fellownet.chronograph');
+        if (!api || !await api.getInstalled()) throw new Error('Chronograph is not installed.');
+        await api.get('/chronographs');
+        return api;
     }
 
 
