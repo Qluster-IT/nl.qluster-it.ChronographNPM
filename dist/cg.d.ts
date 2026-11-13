@@ -3,7 +3,7 @@ export class CG {
         homey: any;
     }): Promise<CG>;
     /**
-     * Removes the realtime and unload listeners. Called automatically when Homey emits unload.
+     * Removes the install, uninstall, realtime and unload listeners. Called automatically when Homey emits unload.
      */
     static destroy(): void;
     static getAllChronographs(): Promise<any>;
@@ -55,13 +55,19 @@ export class CG {
     homey: any;
     isReady: boolean;
     _destroyed: boolean;
+    _uninstallGeneration: number;
+    _installListener: () => void;
+    _uninstallListener: () => void;
+    api: any;
     _defer: Defer;
     ready: any;
+    /** @returns {Promise<CG>} */
     init({}?: {}): Promise<CG>;
-    api: any;
+    _initializing: any;
     realtimeFunction(event: any, data: any): Promise<void>;
     /** @private */
     private getAppApi;
+    _appApi: any;
 }
 declare class Defer {
     /**

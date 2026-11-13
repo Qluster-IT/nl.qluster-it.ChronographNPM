@@ -14,42 +14,63 @@ class CG {
         this.homey = CG.homey = homey;
         CG.isReady = this.isReady = false;
         this._destroyed = false;
+        this._uninstallGeneration = 0;
+        this._installListener = () => {
+            const pending = this._initializing || Promise.resolve();
+            pending.then(() => this.init()).catch(error => this.homey.error('CG.init', error));
+        };
+        this._uninstallListener = () => {
+            this._uninstallGeneration++;
+            this.isReady = false;
+            if (CG.Current === this) CG.isReady = false;
+            if (this.api) {
+                this.api.off('realtime', this.realtimeFunction);
+                this.api = null;
+            }
+        };
 
         this._defer = CG._defer = new Defer();
 
         this.ready = CG.ready = this._defer.promise;
-        this.ready.then(() => {
-            this.isReady = true;
-            if (CG.Current === this) CG.isReady = true;
-        });
     }
 
+    /** @returns {Promise<CG>} */
     async init({ } = {}) {
-        if (!this.api) {
+        if (this._destroyed || this.api) return this;
+        if (this._initializing) return this._initializing;
+        this._initializing = Promise.resolve().then(async () => {
             try {
-                const api = await this.getAppApi();
                 if (this._destroyed) return this;
+                const generation = this._uninstallGeneration;
+                const api = await this.getAppApi();
+                if (this._destroyed || generation !== this._uninstallGeneration) return this;
                 api.on('realtime', this.realtimeFunction);
                 this.api = api;
+                this.isReady = true;
+                if (CG.Current === this) CG.isReady = true;
                 this._defer.resolve();
             } catch (error) {
                 this.homey.error('CG.init', error);
-                return this;
             }
-        }
-        return this;
+            return this;
+        }).finally(() => { this._initializing = null; });
+        return this._initializing;
     }
 
 
 
     /**
-     * Removes the realtime and unload listeners. Called automatically when Homey emits unload.
+     * Removes the install, uninstall, realtime and unload listeners. Called automatically when Homey emits unload.
      */
     static destroy() {
         try {
             if (!CG.Current) return;
             CG.Current._destroyed = true;
             CG.Current.homey.removeListener('unload', CG.destroy);
+            if (CG.Current._appApi) {
+                CG.Current._appApi.off('install', CG.Current._installListener);
+                CG.Current._appApi.off('uninstall', CG.Current._uninstallListener);
+            }
             if (CG.Current.api) {
                 CG.Current.api.off('realtime', CG.Current.realtimeFunction);
             }
@@ -75,9 +96,15 @@ class CG {
 
     /** @private */
     async getAppApi() {
-        const api = this.homey.api.getApiApp('nl.fellownet.chronograph');
-        if (!api || !await api.getInstalled()) throw new Error('Chronograph is not installed.');
-        await api.get('/chronographs');
+        if (!this._appApi) {
+            const api = this.homey.api.getApiApp('nl.fellownet.chronograph');
+            if (!api) throw new Error('Chronograph is not installed.');
+            api.on('install', this._installListener);
+            api.on('uninstall', this._uninstallListener);
+            this._appApi = api;
+        }
+        const api = this._appApi;
+        if (!await api.getInstalled()) throw new Error('Chronograph is not installed.');
         return api;
     }
 
