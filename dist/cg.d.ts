@@ -54,6 +54,8 @@ export class CG {
     });
     homey: any;
     isReady: boolean;
+    _destroyed: boolean;
+    _defer: Defer;
     ready: any;
     init({}?: {}): Promise<CG>;
     api: any;
@@ -61,4 +63,25 @@ export class CG {
     /** @private */
     private getAppApi;
 }
+declare class Defer {
+    /**
+     * @param {Number} timeout
+     */
+    constructor(timeout: number, originalPromise: any, onTimeout: any);
+    set isDefered(arg: boolean);
+    get isDefered(): boolean;
+    _isDefered: any;
+    set promise(arg: any);
+    get promise(): any;
+    _promise: any;
+    _resolve: any;
+    _reject: any;
+    timeout: any;
+    then(fun: any): Defer;
+    catch(fun: any): Defer;
+    finally(fun: any): Defer;
+    resolve(val1: any, val2: any, val3: any, val4: any): any;
+    reject(val1: any, val2: any, val3: any, val4: any): any;
+}
+export {};
 //# sourceMappingURL=cg.d.ts.map
